@@ -6,7 +6,6 @@ import { ArrowRight, Clock3, Heart, Search, Settings2, Sparkles } from "lucide-r
 import { getFavorites, getRecent, getDemoUser, clearDemoUser } from "@/lib/client-storage";
 import { tools } from "@/lib/tools";
 import ToolCard from "@/components/ToolCard";
-import ToolIcon from "@/components/ToolIcon";
 
 export default function DashboardClient() {
   const [favorites, setFavorites] = useState<string[]>([]);

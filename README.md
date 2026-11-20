@@ -39,12 +39,23 @@ npm run dev
 
 Open http://localhost:3000.
 
-## Build check
+## Quality checks
 
 ```bash
-npm run check
-npm run build
+npm run typecheck   # TypeScript type check only (tsc --noEmit). This is NOT a linter.
+npm test            # automated tests (node:test via tsx)
+npm run check       # typecheck + test
+npm run build       # production build
 ```
+
+A real linter (ESLint) is not set up yet; see `docs/TECHNICAL_DECISIONS.md` (D-008).
+
+## Project documentation
+
+- `docs/DEVELOPMENT_LOG.md` — chronological work log with verification results
+- `docs/TECHNICAL_DECISIONS.md` — technical decisions and their status
+- `docs/ROADMAP.md` — roadmap and backlog
+- `docs/TESTING_GUIDE.md` — how to run and write tests, coverage, manual QA checklist
 
 ## Important prototype boundaries
 
@@ -63,7 +74,9 @@ prisma/                  PostgreSQL schema
 src/app/                 Next.js pages and API routes
 src/components/          Reusable UI and tool workspaces
 src/lib/tools.ts         Tool catalog and categories
+src/lib/tool-logic/      Pure, unit-tested tool logic (no React/DOM)
 src/lib/client-storage.ts Browser-local favorites and recents
+docs/                    Project documentation
 ```
 
 ## Next development milestone

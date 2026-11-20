@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertCircle, ArrowDownToLine, Check, CheckCircle2, Clipboard, Download,
-  FileUp, Info, LoaderCircle, Play, RotateCcw, Sparkles, TimerReset,
+  AlertCircle, Check, CheckCircle2, Clipboard, Download,
+  FileUp, Info, LoaderCircle, Play, Sparkles, TimerReset,
 } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import QRCode from "qrcode";
@@ -12,6 +12,10 @@ import type { Tool } from "@/lib/tools";
 import { recordRecent } from "@/lib/client-storage";
 import FavoriteToggle from "@/components/FavoriteToggle";
 import ToolIcon from "@/components/ToolIcon";
+import {
+  base64Decode, base64Encode, calculateDateDifference, calculateInvoiceTotal, calculatePercentageOf,
+  clampUuidCount, formatBytes, formatJson, formatText, generateUuids, getWordStats,
+} from "@/lib/tool-logic";
 
 type Props = { tool: Tool };
 
@@ -20,23 +24,6 @@ function saveBlob(blob: Blob, filename: string) {
   const anchor = document.createElement("a");
   anchor.href = url; anchor.download = filename; anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function base64Encode(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = "";
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return btoa(binary);
-}
-function base64Decode(value: string) {
-  const binary = atob(value.trim());
-  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-}
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 export default function ToolWorkspace({ tool }: Props) {
@@ -76,13 +63,8 @@ export default function ToolWorkspace({ tool }: Props) {
     return () => window.clearInterval(id);
   }, [running, timerMode]);
 
-  const wordStats = useMemo(() => {
-    const trimmed = input.trim();
-    const words = trimmed ? trimmed.split(/\s+/).length : 0;
-    const sentences = trimmed ? (trimmed.match(/[.!?]+(?=\s|$)/g) || []).length : 0;
-    return { words, characters: input.length, noSpaces: input.replace(/\s/g, "").length, sentences, reading: words ? Math.max(1, Math.ceil(words / 200)) : 0 };
-  }, [input]);
-  const invoiceTotal = Math.max(0, Number(quantity) || 0) * Math.max(0, Number(unitPrice) || 0);
+  const wordStats = useMemo(() => getWordStats(input), [input]);
+  const invoiceTotal = calculateInvoiceTotal(quantity, unitPrice);
 
   function resetOutput() {
     setResult(""); setError(""); setNotice(""); setDownloadUrl(""); setImagePreview(""); setCompressedInfo(""); setQrData("");
@@ -92,15 +74,9 @@ export default function ToolWorkspace({ tool }: Props) {
     try {
       let output = "";
       if (tool.slug === "text-formatter") {
-        if (mode === "uppercase") output = input.toUpperCase();
-        else if (mode === "lowercase") output = input.toLowerCase();
-        else if (mode === "title") output = input.toLowerCase().replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
-        else if (mode === "sentence") output = input.toLowerCase().replace(/(^\s*\w|[.!?]\s+\w)/g, (letter) => letter.toUpperCase());
-        else if (mode === "trim") output = input.split("\n").map((line) => line.trim()).join("\n").replace(/[ \t]{2,}/g, " ");
-        else output = input.trim().replace(/\s+/g, " ");
+        output = formatText(input, mode);
       } else if (tool.slug === "json-formatter") {
-        const parsed = JSON.parse(input);
-        output = mode === "minify" ? JSON.stringify(parsed) : JSON.stringify(parsed, null, Number(mode) || 2);
+        output = formatJson(input, mode);
         setNotice("Valid JSON. Your result is ready.");
       } else if (tool.slug === "base64-encoder") {
         output = mode === "decode" ? base64Decode(input) : base64Encode(input);
@@ -116,8 +92,8 @@ export default function ToolWorkspace({ tool }: Props) {
     resetOutput(); setBusy(true);
     try {
       if (tool.slug === "uuid-generator") {
-        const count = Math.min(100, Math.max(1, Number(uuidCount) || 1));
-        const ids = Array.from({ length: count }, () => crypto.randomUUID());
+        const count = clampUuidCount(uuidCount);
+        const ids = generateUuids(count);
         setResult(ids.join("\n")); setDownloadName("toolhub-uuids.txt");
       } else if (tool.slug === "qr-generator") {
         if (!input.trim()) throw new Error("Enter text or a link to create a QR code.");
@@ -160,14 +136,9 @@ export default function ToolWorkspace({ tool }: Props) {
         setResult(`${selectedFiles.length} PDF files combined successfully.`);
         setNotice("Your files were merged locally in your browser.");
       } else if (tool.slug === "percentage-calculator") {
-        const b = Number(base), p = Number(percent);
-        if (!Number.isFinite(b) || !Number.isFinite(p)) throw new Error("Enter valid numbers in both fields.");
-        setResult(`${p}% of ${b} = ${(b * p / 100).toLocaleString(undefined, { maximumFractionDigits: 6 })}`);
+        setResult(calculatePercentageOf(base, percent));
       } else if (tool.slug === "date-calculator") {
-        if (!startDate || !endDate) throw new Error("Choose both dates first.");
-        const start = new Date(`${startDate}T00:00:00Z`), end = new Date(`${endDate}T00:00:00Z`);
-        const diff = Math.round((end.getTime() - start.getTime()) / 86400000);
-        setResult(`${Math.abs(diff).toLocaleString()} days${diff < 0 ? " (the end date is before the start date)" : ""}`);
+        setResult(calculateDateDifference(startDate, endDate));
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Something went wrong. Please try again.");
