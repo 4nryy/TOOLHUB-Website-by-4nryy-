@@ -37,28 +37,33 @@ Jika muncul error `You installed esbuild for another platform`: `node_modules` b
 - Satu perilaku per `it`; nama test menjelaskan perilaku, bukan implementasi.
 - Setiap fungsi baru minimal diuji untuk: kasus normal, input kosong, input tidak valid, dan batas/edge case relevan.
 
-### Blok "KNOWN ISSUES"
-Perilaku yang sudah diketahui bermasalah dikunci di blok `describe("… — KNOWN ISSUES (current behavior, may change in Task 2)")`. Itu **bukan** pernyataan bahwa perilakunya benar. Saat bug diperbaiki: ubah assertion ke perilaku yang benar dan pindahkan ke blok perilaku normal.
+### Blok "KNOWN ISSUES" dan "KNOWN LIMITATIONS"
+- **KNOWN ISSUES (still open):** perilaku yang diketahui bermasalah dan belum diperbaiki, dikunci apa adanya. Itu **bukan** pernyataan bahwa perilakunya benar. Saat diperbaiki: ubah assertion ke perilaku yang benar dan pindahkan ke blok perilaku normal.
+- **KNOWN LIMITATIONS (documented):** batas desain yang disengaja dan terdokumentasi di `docs/TECHNICAL_DECISIONS.md` (mis. singkatan di luar daftar, kunci duplikat JSON).
+- Jangan menghapus satu blok utuh saat memperbaiki satu bug; periksa tiap test di dalamnya.
 
 ### Test `todo`
-Test dengan opsi `{ todo: "alasan" }` dilaporkan sebagai TODO dan tidak menggagalkan suite. Saat ini ada satu: ikon kategori Documents (`file`) dan Business (`briefcase`) tidak ada di `ToolIcon`.
+Test dengan opsi `{ todo: "alasan" }` dilaporkan sebagai TODO. Di sandbox, runner Node bawaan keluar dengan exit 0, tetapi validasi lokal Product Owner melaporkan `npm test` keluar dengan exit code 1 (penyebabnya belum diselidiki; di luar lingkup Task 2A). Saat ini ada satu: ikon kategori Documents (`file`) dan Business (`briefcase`) tidak ada di `ToolIcon`.
 
-## Cakupan saat ini (173 test; 172 pass, 1 todo di sandbox audit)
+## Cakupan saat ini (295 test; 294 pass, 1 todo di sandbox setelah perbaikan review)
 
 | File uji | Fungsi / area | Jumlah |
 |---|---|---:|
-| `base64.test.ts` | `base64Encode`, `base64Decode` | 14 |
-| `text-format.test.ts` | `formatText` (6 mode) | 23 |
-| `word-stats.test.ts` | `getWordStats` | 17 |
-| `percentage.test.ts` | `calculatePercentageOf` | 13 |
-| `date-diff.test.ts` | `diffInDays`, `calculateDateDifference` | 16 |
-| `json-format.test.ts` | `formatJson` | 12 |
+| `base64.test.ts` | `base64Encode`, `base64Decode` (standar/URL-safe, padding, malformed; oracle: `Buffer`) | 30 |
+| `text-format.test.ts` | `formatText` (6 mode, Unicode, singkatan, idempotensi) | 46 |
+| `word-stats.test.ts` | `getWordStats` (kata, kalimat, singkatan, kutip, satuan `ms`) | 40 |
+| `percentage.test.ts` | `calculatePercentageOf`, `parseDecimalInput` | 26 |
+| `date-diff.test.ts` | `parseIsoDate`, `diffInDays`, `calculateDateDifference` | 32 |
+| `json-format.test.ts` | `formatJson` (lossless, error, batas, differential vs `JSON.parse`) | 43 |
 | `uuid.test.ts` | `clampUuidCount`, `generateUuids` | 8 |
 | `invoice.test.ts` | `calculateInvoiceTotal` | 8 |
 | `format-bytes.test.ts` | `formatBytes` | 8 |
 | `tools.test.ts` | registry `tools`, `categories`, `getTool` | 10 |
 | `client-storage.test.ts` | favorites, recent, demo user, SSR, error handling | 17 |
 | `ui-wiring.test.ts` | 12 cabang UI + 12 ikon + 2 guard + 1 todo | 27 |
+
+### Differential test
+`json-format.test.ts` memakai `JSON.parse`/`JSON.stringify` bawaan sebagai oracle: dokumen acak (seed tetap, jadi reproducible) harus tercetak identik, dan input hasil mutasi harus diterima/ditolak sama persis. `base64.test.ts` memakai `Buffer` Node sebagai oracle. Jika test ini gagal, `console` menampilkan input penyebabnya; salin ke test regresi tersendiri.
 
 ## Yang BELUM diuji otomatis
 - Image Compressor, PDF Merger, QR Generator (butuh canvas/File/Blob browser; logika masih di `ToolWorkspace.tsx`).
@@ -82,5 +87,18 @@ Jalankan `npm run dev`, buka tiap tool, dan periksa: kasus normal, input kosong,
 | Invoice | Print → Save as PDF, hanya pratinjau invoice yang tercetak |
 | Favorites/Recent/Dashboard | Muat ulang halaman, localStorage dihapus manual |
 
-## Catatan verifikasi di sandbox audit
-`tsx` tidak bisa dijalankan di sandbox (binary esbuild Windows), sehingga hasil test Task 1 di sandbox diperoleh dengan runner Node bawaan (type-stripping) + resolver sementara di luar repo. Test yang sama, runner berbeda. Hasil `npm test` di mesin lokal harus dikonfirmasi.
+## Status validasi
+
+Dua sumber dicatat terpisah. Keduanya tidak boleh dicampur.
+
+**Lokal (Product Owner):** dijalankan pada tree Task 2A sebelum perbaikan self-review (293 pass; belum memuat test regresi `ms`).
+- `npm run typecheck`: PASS
+- `npm run build`: PASS
+- `npm test`: 293 pass, 0 fail, 1 todo; exit code 1 dilaporkan (penyebabnya belum diselidiki)
+- Uji manual Base64: PASS
+
+**Sandbox audit:** Linux tanpa network, dengan binary esbuild Windows di `node_modules`.
+- `npm test` dan `npm run check` tidak bisa berjalan (esbuild). `npm run build` tidak bisa berjalan (`next: Permission denied`; SWC tidak bisa diunduh).
+- Pengujian memakai runner Node bawaan + resolver sementara di luar repo: 295 test, 294 pass, 0 fail, 1 todo (exit 0). Test yang sama, runner berbeda.
+
+Sebelum commit, jalankan ulang `npm run typecheck`, `npm test`, dan `npm run build` pada tree final. Hanya angka dari run itu yang berlaku sebagai validasi lokal.
