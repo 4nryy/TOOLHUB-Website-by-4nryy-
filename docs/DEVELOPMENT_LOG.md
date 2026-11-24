@@ -7,9 +7,124 @@ Label temuan: **Verified** · **Partially verified** · **Planned** · **Unknown
 
 ---
 
+## 2026-11-22 — Task 2B Phase 1: Category icons & LocalStorage UX
+
+**Status:** diimplementasikan; **revisi R1** (lihat bagian "Revisi R1") menunggu review Product Owner. Phase 2 belum dimulai.
+**Baseline:** commit `8e866d2` (`main`, `origin/main`, working tree clean), dikonfirmasi Product Owner. Workspace sandbox bukan repositori Git dan tidak bisa membuktikan isi 8e866d2, sehingga patch dibuat terhadap salinan sandbox yang diharapkan identik dengan 8e866d2 (lihat "Koreksi inventori" dan "Patch").
+
+### Tujuan
+1. Ikon kategori Documents (`file`) dan Business (`briefcase`) tidak lagi jatuh ke Wrench; kategori Text & Writing punya warna ikon.
+2. Penulisan LocalStorage tidak pernah melempar error ke UI; kegagalan ditangani dengan feedback yang jujur dan spesifik per jenis data.
+
+### Perubahan (R1 final)
+- **Ikon:** modul baru `src/lib/tool-icons.ts` (tanpa JSX) berisi peta ikon, `resolveToolIcon`, `hasToolIcon`, dan `categoryIconClass`. Menambahkan `File` dan `Briefcase` dari `lucide-react` yang sudah terpasang. `ToolIcon.tsx` mendelegasikan ke modul ini. `ToolCard.tsx` memakai `categoryIconClass` (perilaku sama). `globals.css`: `.icon-text-writing{background:#fdf0f6;color:#c3407b}`.
+- **Storage:** `client-storage.ts` ditulis ulang. Status sekarang **per jenis data** (`favorites`, `recent`, `demo-user`):
+  - `getStorageStatus(kind)` mengembalikan `"degraded"` bila pembacaan terakhir key itu gagal, atau nilainya hanya ada di memori.
+  - `getStorageStatus()` tanpa argumen tetap tersedia (keseluruhan).
+  - `getDegradedNotices()` mengembalikan notice untuk setiap jenis yang degraded, sehingga UI tidak menampilkan peringatan untuk jenis yang sehat.
+  - Pembacaan key gagal hanya dihapus oleh pembacaan key itu sendiri yang berhasil, atau oleh penulisan berhasil untuk key itu. Pembacaan key lain tidak menghapusnya.
+  - Penulisan yang gagal disimpan di memori untuk sesi halaman. Penulisan berhasil berikutnya untuk key itu menghapus salinan memori.
+  - Signature dan return value fungsi publik lama tidak berubah.
+- **Feedback:**
+  - `FavoriteToggle.tsx` memeriksa **hanya** `getStorageStatus("favorites")`. Di workspace tampil "Session only"; di kartu, `title`/`aria-label` menyebut favorit.
+  - `DashboardClient.tsx` menampilkan `getDegradedNotices()` di footnote. Bila tidak ada yang degraded, teks prototype normal.
+- **Tidak diubah (sengaja):** `TopNav.tsx` (`getDemoUser` tidak pernah melempar), `ToolWorkspace.tsx` (`recordRecent` tidak pernah melempar), `login/page.tsx` (`setDemoUser` tidak pernah melempar; dashboard menjelaskan status), logika 12 tool, `tools.ts`, navbar, homepage, direktori, dan Percentage Calculator.
+
+### Notice (teks UI, ditampilkan hanya bila jenis itu degraded)
+- Favorites: "Favorites are kept for this session only: this browser could not save or read them."
+- Recent tools: "Recent tools are kept for this session only: this browser could not save or read them."
+- Demo name: "Your demo name is kept for this session only: this browser could not save or read it."
+
+### Caller yang diaudit (dampak perubahan)
+| Fungsi | Caller | Dampak |
+|---|---|---|
+| `toggleFavorite` | `FavoriteToggle` | Return value sama. Tidak melempar lagi. Status dicek per `favorites` |
+| `recordRecent` | `ToolWorkspace` (useEffect) | Tidak melempar lagi, tidak crash |
+| `setDemoUser` | `login/page.tsx` | Tidak melempar lagi, redirect tetap jalan |
+| `clearDemoUser` | `DashboardClient` | Tidak melempar lagi |
+| `getDemoUser` | `TopNav`, `DashboardClient` | Aman saat storage diblokir |
+| `getFavorites`, `getRecent` | `FavoriteToggle`, `DashboardClient` | Sama |
+| `getStorageStatus` | `FavoriteToggle` (baru), `DashboardClient` (baru) | Baru di Phase 1 |
+
+### Perilaku saat localStorage gagal
+- Halaman tetap render; tidak ada error boundary yang terpicu oleh storage.
+- Favorit, recent, dan nama demo tetap berfungsi untuk **sesi halaman itu** dari memori.
+- Hanya jenis data yang gagal yang diberi notice. Tidak ada peringatan palsu untuk jenis yang berhasil.
+- Tidak ada alert browser. Tidak ada klaim bahwa data tersimpan permanen.
+- Setelah penulisan key itu berhasil lagi, status jenis tersebut kembali `ok`. Data yang masih hanya di memori tetap ditandai sampai ditulis ulang (tidak disalin otomatis ke storage, supaya tidak menimpa data dari tab lain).
+
+### Perubahan test yang sudah ada (transparan)
+- `client-storage.test.ts`, blok `KNOWN ISSUES` (Task 2A): test "write errors ... are NOT caught and propagate" **dibalik** ke perilaku baru. Blok itu dihapus karena tidak ada known issue lagi di modul ini. Assertion lama gagal pada kode lama dan lulus pada kode baru.
+- `client-storage.test.ts`: `installWindow` memanggil `resetClientStorageState()` agar state memori tidak bocor antar test (perubahan harness).
+- `ui-wiring.test.ts`: assertion "ToolIcon knows the icon…" memeriksa registry (`tool-icons.ts`) karena `ToolIcon` mendelegasikan ke sana. Test `todo` ikon kategori **diganti** dengan 12 test nyata (satu per kategori).
+- Tidak ada test yang dihapus tanpa pengganti.
+
+### Test baru
+- `tool-icons.test.ts` (34 test): semua ikon kategori dan tool terdaftar; Documents→`File` dan Business→`Briefcase`, keduanya bukan Wrench; nama data tetap `file`/`briefcase`; fallback untuk nama tak dikenal; nama bawaan prototype (`constructor`, `__proto__`) bukan ikon; kelas warna kategori unik; setiap kelas punya aturan CSS dengan `background` dan `color`.
+- `client-storage.test.ts`: tulis gagal (toggle, recordRecent, setDemoUser, clearDemoUser); event tetap terkirim sekali per tulis; pemulihan; storage diblokir (getter melempar); `window` tanpa `localStorage`; status normal.
+- **Revisi R1 — status per jenis data** (`client-storage.test.ts`, blok "status per data kind"):
+  1. Favorites gagal, Recent berhasil (status favorites degraded, recent dan demo-user ok, notice hanya favorites).
+  2. Recent gagal, Favorites berhasil (kebalikan skenario 1).
+  3. Demo user gagal, Favorites dan Recent berhasil.
+  4a. Semua jenis gagal menulis (tiga notice, urutan tetap).
+  4b. Storage diblokir total (ketiganya degraded, pembacaan kosong, tidak melempar).
+  5. Pemulihan: setiap jenis diperbarui sesuai key-nya; favorites yang masih hanya di memori tetap degraded sampai ditulis.
+  - Tambahan: pembacaan gagal satu key tidak dihapus oleh pembacaan key lain yang berhasil; penulisan berhasil membersihkan kegagalan baca key yang sama tanpa membaca ulang; tidak ada notice bila semua sehat.
+
+### Revisi R1: koreksi dari review Product Owner
+1. Status penyimpanan per jenis data (lihat di atas). Sebelumnya satu status global membuat FavoriteToggle menampilkan "Session only" walau yang gagal hanya demo user.
+2. Dokumentasi disinkronkan: Task 2A dicatat sebagai di-commit dan di-push (`8e866d2`).
+3. Inventori diperiksa ulang (lihat di bawah).
+4. Validasi diulang; hasil dipisah per sumber.
+
+### Koreksi inventori
+Laporan awal Phase 1 menulis "Diubah (7)" untuk file sumber, tetapi daftarnya berisi **8** file. Jumlah yang benar (relatif terhadap baseline sandbox):
+- **Baru (2):** `src/lib/tool-icons.ts`, `src/lib/tool-icons.test.ts`
+- **Diubah sumber (8):** `src/app/globals.css`, `src/components/ToolIcon.tsx`, `src/components/ToolCard.tsx`, `src/components/FavoriteToggle.tsx`, `src/components/DashboardClient.tsx`, `src/lib/client-storage.ts`, `src/lib/client-storage.test.ts`, `src/lib/ui-wiring.test.ts`
+- **Dokumen (4):** `docs/DEVELOPMENT_LOG.md`, `docs/ROADMAP.md`, `docs/TECHNICAL_DECISIONS.md`, `docs/TESTING_GUIDE.md`
+- **Total: 14 file.** Tidak ada file lain yang berubah. `package.json` tidak berubah (tidak ada dependency baru). `package-lock.json` identik dengan ZIP asli (diverifikasi `cmp` dan sha256).
+
+### Verifikasi yang dijalankan (sandbox: Linux, Node 22.23.5, tanpa network, tanpa browser)
+
+Riwayat dibagi menurut run. Angka awal Phase 1 tetap dicatat apa adanya.
+
+**Run awal Phase 1 (sebelum revisi R1):** 346 test, 346 pass, 0 fail, 0 todo. Sudah digantikan oleh run R1.
+
+**Run R1 (sandbox):**
+
+| Command | Hasil |
+|---|---|
+| `npm run typecheck` (`tsc --noEmit`) | exit 0 |
+| `tsc --noEmit --noUnusedLocals --noUnusedParameters` | exit 0 |
+| Suite lengkap (runner Node bawaan + resolver sementara di luar repo) | exit 0. **355 test: 355 pass, 0 fail, 0 todo** |
+| Sama, 4 zona waktu × 2 locale | 355 pass, 0 fail, 0 todo di semua kombinasi |
+| `npm test` (tsx) | **exit 1 di sandbox**: `esbuild` terpasang untuk `win32-x64` (keterbatasan lingkungan, bukan kegagalan kode) |
+| `npm run check` | exit 1 (typecheck lulus; `npm test` gagal alasan sama) |
+| `npm run build` | **exit 127 di sandbox**: `next: Permission denied`. **Belum diverifikasi** |
+| `git diff --check` | exit 0 di repo Git sementara yang dibangun dari baseline sandbox. Sebelumnya gagal karena satu baris kosong di akhir `TECHNICAL_DECISIONS.md`; sudah dibersihkan |
+| Mutation check status per jenis (5 mutan) | **5 tertangkap**: status mengabaikan jenis; baca sukses menghapus kegagalan key lain; notice untuk semua jenis; tulis sukses tidak membersihkan kegagalan baca key-nya; kegagalan baca diabaikan |
+| Mutation check ikon & storage run awal (10 mutan) | 9 tertangkap; 1 ekuivalen (melempar ulang di `getStorage()` yang hanya dipanggil dari blok `try`) |
+| Tool logic (`src/lib/tool-logic/`) | identik dengan baseline sandbox |
+
+**Validasi lokal Product Owner (Phase 1):** **belum dijalankan.** Menunggu tree R1.
+**Uji browser manual:** **belum dilakukan.** Langkahnya ada di `TESTING_GUIDE.md`.
+
+### Patch
+Patch dibuat terhadap salinan sandbox yang diharapkan identik dengan `8e866d2`. Sandbox tidak bisa membuktikan itu, sehingga patch **tidak** diklaim sebagai "terverifikasi terhadap 8e866d2". Verifikasi yang benar: terapkan patch ke `8e866d2` di mesin Product Owner (`git apply --check`), lalu jalankan validasi lokal.
+
+### Belum selesai / butuh tindakan
+1. **Validasi lokal Product Owner** pada tree R1: `npm run typecheck`, `npm test`, `npm run build`, `git diff --check`.
+2. **Uji browser manual** (blokir storage, lalu periksa homepage, tool, favorit, dashboard, login) sesuai `TESTING_GUIDE.md`.
+3. Kartu favorit ikon-saja hanya memberi feedback lewat `title` dan `aria-label` (tidak terlihat). Keterbatasan UI yang disengaja pada fase ini.
+4. Tidak ada sinkronisasi antar-tab (listener `storage`). Di luar scope.
+5. Dashboard menampilkan "N saved" berdasarkan total favorit, tetapi hanya 4 yang ditampilkan. Dicatat untuk Phase 2 (dashboard).
+6. Data yang hanya di memori tidak disalin otomatis ke storage saat storage pulih. Tetap ditandai sampai ditulis ulang oleh tindakan pengguna.
+
+---
+
 ## 2026-11-21 — Task 2A: Logic & validation fixes
 
-**Status:** selesai. Validasi lokal sebelumnya oleh Product Owner: typecheck PASS dan build PASS, test 293 pass (sebelum perbaikan self-review). Validasi lokal penuh pada tree yang sudah diperbarui masih pending. Perbaikan self-review (M1–M2, m1–m6) sudah diterapkan; menunggu persetujuan commit. Task 2B/2C dan Task 3 belum dimulai.
+**Status:** selesai; **di-commit dan di-push ke `main` sebagai `8e866d2`** (`origin/main`). Validasi lokal PO yang tercatat di bawah (typecheck PASS, build PASS, test 293 pass) dijalankan pada tree **sebelum** perbaikan self-review; hasil lokal untuk commit `8e866d2` tidak tercatat di dokumen ini. Phase 2 belum dimulai.
 **Baseline:** commit `afea53b` (Task 1), menurut Product Owner. Pekerjaan dilakukan di atas file Task 1 yang kuserahkan; jika repository lokal berbeda dari itu, periksa saat menerapkan patch.
 
 ### Tujuan
@@ -83,7 +198,7 @@ Catatan: angka sandbox dan angka lokal berasal dari tree dan runner yang berbeda
 
 ## 2026-11-20 — Task 1: Test & quality baseline
 
-**Status:** selesai, menunggu review Product Owner. Task 2 dan Task 3 belum dimulai.
+**Status:** selesai, di-commit (`afea53b`). Task 2 dan Task 3 belum dimulai pada saat entri ini ditulis.
 
 ### Tujuan
 Memasang jaring pengaman (automated test + pemisahan typecheck dari lint) sebelum memperbaiki bug, tanpa mengubah fungsionalitas 12 tools.

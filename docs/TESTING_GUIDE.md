@@ -43,9 +43,9 @@ Jika muncul error `You installed esbuild for another platform`: `node_modules` b
 - Jangan menghapus satu blok utuh saat memperbaiki satu bug; periksa tiap test di dalamnya.
 
 ### Test `todo`
-Test dengan opsi `{ todo: "alasan" }` dilaporkan sebagai TODO. Di sandbox, runner Node bawaan keluar dengan exit 0, tetapi validasi lokal Product Owner melaporkan `npm test` keluar dengan exit code 1 (penyebabnya belum diselidiki; di luar lingkup Task 2A). Saat ini ada satu: ikon kategori Documents (`file`) dan Business (`briefcase`) tidak ada di `ToolIcon`.
+Test dengan opsi `{ todo: "alasan" }` dilaporkan sebagai TODO. Di sandbox, runner Node bawaan keluar dengan exit 0, tetapi validasi lokal Product Owner melaporkan `npm test` keluar dengan exit code 1 (penyebabnya belum diselidiki; di luar lingkup Task 2A). Saat ini tidak ada test `todo`: ikon kategori Documents dan Business sudah diperbaiki di Task 2B Phase 1 dan dicakup test nyata.
 
-## Cakupan saat ini (295 test; 294 pass, 1 todo di sandbox setelah perbaikan review)
+## Cakupan saat ini (355 test; 355 pass, 0 todo, sandbox, Task 2B Phase 1 revisi R1)
 
 | File uji | Fungsi / area | Jumlah |
 |---|---|---:|
@@ -59,8 +59,9 @@ Test dengan opsi `{ todo: "alasan" }` dilaporkan sebagai TODO. Di sandbox, runne
 | `invoice.test.ts` | `calculateInvoiceTotal` | 8 |
 | `format-bytes.test.ts` | `formatBytes` | 8 |
 | `tools.test.ts` | registry `tools`, `categories`, `getTool` | 10 |
-| `client-storage.test.ts` | favorites, recent, demo user, SSR, error handling | 17 |
-| `ui-wiring.test.ts` | 12 cabang UI + 12 ikon + 2 guard + 1 todo | 27 |
+| `client-storage.test.ts` | favorites, recent, demo user, SSR, kegagalan tulis/baca, storage diblokir, status per jenis data (5 skenario + isolasi) | 37 |
+| `ui-wiring.test.ts` | 12 cabang UI + 12 ikon tool + 12 ikon kategori + 2 guard | 33 |
+| `tool-icons.test.ts` | registry ikon, Documents/Business, kelas warna kategori dan aturan CSS | 34 |
 
 ### Differential test
 `json-format.test.ts` memakai `JSON.parse`/`JSON.stringify` bawaan sebagai oracle: dokumen acak (seed tetap, jadi reproducible) harus tercetak identik, dan input hasil mutasi harus diterima/ditolak sama persis. `base64.test.ts` memakai `Buffer` Node sebagai oracle. Jika test ini gagal, `console` menampilkan input penyebabnya; salin ke test regresi tersendiri.
@@ -89,16 +90,38 @@ Jalankan `npm run dev`, buka tiap tool, dan periksa: kasus normal, input kosong,
 
 ## Status validasi
 
-Dua sumber dicatat terpisah. Keduanya tidak boleh dicampur.
+Riwayat dipisah per task dan per sumber. Jangan mencampur angka dari sumber yang berbeda.
 
-**Lokal (Product Owner):** dijalankan pada tree Task 2A sebelum perbaikan self-review (293 pass; belum memuat test regresi `ms`).
-- `npm run typecheck`: PASS
-- `npm run build`: PASS
-- `npm test`: 293 pass, 0 fail, 1 todo; exit code 1 dilaporkan (penyebabnya belum diselidiki)
-- Uji manual Base64: PASS
+### Sumber hasil
+- **Sandbox:** Linux, Node 22.23.5, tanpa network, tanpa browser. Runner: Node bawaan + resolver sementara di luar repo. Tidak bisa menjalankan `npm test` (tsx) atau `npm run build` karena binary `esbuild` untuk `win32-x64` dan `next` tanpa izin eksekusi.
+- **Lokal Product Owner:** dijalankan Product Owner di mesinnya. Hanya hasil run itu yang berlaku sebagai validasi lokal.
+- **Browser manual:** uji oleh tangan di browser sesuai checklist.
 
-**Sandbox audit:** Linux tanpa network, dengan binary esbuild Windows di `node_modules`.
-- `npm test` dan `npm run check` tidak bisa berjalan (esbuild). `npm run build` tidak bisa berjalan (`next: Permission denied`; SWC tidak bisa diunduh).
-- Pengujian memakai runner Node bawaan + resolver sementara di luar repo: 295 test, 294 pass, 0 fail, 1 todo (exit 0). Test yang sama, runner berbeda.
+### Riwayat per task
 
-Sebelum commit, jalankan ulang `npm run typecheck`, `npm test`, dan `npm run build` pada tree final. Hanya angka dari run itu yang berlaku sebagai validasi lokal.
+| Task | Sumber | Hasil | Catatan |
+|---|---|---|---|
+| Task 1 | Sandbox | Lihat `DEVELOPMENT_LOG.md` entri Task 1 | Di-commit `afea53b` |
+| Task 2A | Lokal PO (sebelum perbaikan self-review) | typecheck PASS, build PASS, test 293 pass, 0 fail, 1 todo; exit code 1 dilaporkan | Penyebab exit 1 belum diselidiki (di luar lingkup 2A) |
+| Task 2A | Sandbox (setelah perbaikan self-review) | 294 pass, 0 fail, 1 todo (exit 0, runner Node) | Tidak mengganti hasil lokal PO |
+| Task 2A | Lokal PO untuk commit `8e866d2` | **Tidak tercatat di dokumen ini** | Di-commit dan di-push |
+| Task 2B Phase 1 (awal) | Sandbox | 346 pass, 0 fail, 0 todo | Digantikan R1 |
+| Task 2B Phase 1 R1 | Sandbox | **355 pass, 0 fail, 0 todo** (exit 0). typecheck exit 0. `npm test` exit 1 (esbuild). `npm run build` exit 127 (next) | Lihat `DEVELOPMENT_LOG.md` |
+| Task 2B Phase 1 R1 | Lokal PO | **Belum dijalankan** | Perlu: typecheck, test, build, `git diff --check` |
+| Task 2B Phase 1 R1 | Browser manual | **Belum dilakukan** | Lihat "Pengujian manual" |
+
+Lima skenario status per jenis data (favorites gagal, recent gagal, demo user gagal, semua gagal, pemulihan) ada di `client-storage.test.ts`. Mereka tercakup oleh sandbox, belum oleh validasi lokal.
+
+## Pengujian manual: localStorage gagal (Task 2B Phase 1 R1)
+
+Automated test memverifikasi fungsi storage. Perilaku UI harus diuji di browser. Catat hasil per langkah. **Status: belum dilakukan.**
+
+1. Blokir penyimpanan situs ini di pengaturan browser (atau DevTools), lalu muat ulang.
+2. Homepage dan halaman tool harus render normal. Tidak ada error atau layar kosong.
+3. Buka sebuah tool. Halaman harus tetap bisa dipakai.
+4. Di workspace tool, klik "Add to Favorites". Tombol berubah ke "Added to Favorites" dan muncul teks "Session only". Di kartu (homepage/direktori), `title` tombol bintang menyebut favorit untuk sesi itu saja.
+5. Buka `/dashboard`. Footnote harus menyebut hanya jenis data yang bermasalah (favorites dan/atau recent tools). Favorit dari langkah 4 tampil selama halaman belum ditutup.
+6. Buka `/login`, masukkan nama, lanjut. Dashboard dan navbar menampilkan nama untuk sesi itu. Footnote menyebut nama demo bila storage tidak bisa menulis.
+7. **Skenario selektif:** izinkan penyimpanan lagi, lalu blokir hanya penulisan (jika browser mendukung), atau cukup periksa bahwa tidak ada notice untuk jenis data yang tidak bermasalah.
+8. Izinkan penyimpanan, muat ulang halaman. Footnote kembali ke pesan prototype normal bila tidak ada jenis yang degraded.
+9. Catat hasil per langkah sebagai bagian dari log QA. Jangan menandai langkah lulus bila belum benar-benar dijalankan.

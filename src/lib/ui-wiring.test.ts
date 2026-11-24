@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { categories, tools } from "./tools";
+import { hasToolIcon } from "./tool-icons";
 
 /**
  * Source-text guards for the single-file architecture of Task 1 (audit finding: a registry entry
@@ -10,8 +11,6 @@ import { categories, tools } from "./tools";
  */
 const read = (relative: string) => readFileSync(new URL(relative, import.meta.url), "utf8");
 const workspace = read("../components/ToolWorkspace.tsx");
-const iconSource = read("../components/ToolIcon.tsx");
-const hasIcon = (name: string) => new RegExp(`(?:["']${name}["']|\\b${name})\\s*:`).test(iconSource);
 
 describe("UI wiring (source-based smoke checks)", () => {
   for (const tool of tools) {
@@ -19,7 +18,7 @@ describe("UI wiring (source-based smoke checks)", () => {
       assert.ok(workspace.includes(`"${tool.slug}"`), `no branch for ${tool.slug} in ToolWorkspace.tsx`);
     });
     it(`ToolIcon knows the icon "${tool.icon}" used by "${tool.slug}"`, () => {
-      assert.ok(hasIcon(tool.icon), `icon ${tool.icon} missing in ToolIcon.tsx`);
+      assert.ok(hasToolIcon(tool.icon), `icon ${tool.icon} is not registered (ToolIcon uses tool-icons.ts)`);
     });
   }
   it("ToolWorkspace imports its logic from the tested tool-logic module", () => {
@@ -32,10 +31,10 @@ describe("UI wiring (source-based smoke checks)", () => {
   });
 });
 
-describe("UI wiring — KNOWN ISSUES (reported as TODO, do not fail the suite)", () => {
-  it("every category icon exists in ToolIcon (Documents -> 'file' and Business -> 'briefcase' fall back to a wrench)",
-    { todo: "Task 2: add missing category icons or change them in tools.ts" },
-    () => {
-      for (const c of categories) assert.ok(hasIcon(c.icon), `category "${c.name}" uses missing icon "${c.icon}"`);
+describe("UI wiring — category icons (Task 2B Phase 1)", () => {
+  for (const category of categories) {
+    it(`category "${category.name}" has a registered icon`, () => {
+      assert.ok(hasToolIcon(category.icon), `category "${category.name}" uses unregistered icon "${category.icon}"`);
     });
+  }
 });

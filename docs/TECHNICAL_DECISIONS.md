@@ -14,11 +14,14 @@ Keputusan penting baru ditambahkan di sini, bukan hanya di chat. Sumber kebenara
 | D-007 | `typecheck` dipisah dari `lint`; `tsc` tidak disebut linter | Accepted | Task 1 ✅ |
 | D-008 | ESLint sungguhan (butuh dependency baru) | **Proposed** | Menunggu persetujuan |
 | D-009 | Logika tool diekstrak ke `src/lib/tool-logic/` dengan characterization tests | Accepted | Task 1 ✅ |
-| D-010 | JSON Formatter: parser strict lossless (angka disalin apa adanya) | Implemented, menunggu review | Task 2A |
-| D-011 | Base64 decode: standar + URL-safe, padding opsional, validasi ketat | Implemented, menunggu review | Task 2A |
-| D-012 | Konvensi validasi input: kosong ≠ 0, format ketat, error spesifik | Implemented, menunggu review | Task 2A |
-| D-013 | Text Formatter: trim per baris, Unicode, daftar singkatan pendek | Implemented, menunggu review | Task 2A |
-| D-014 | Word Counter: heuristik singkatan sederhana (bukan NLP) | Implemented, menunggu review | Task 2A |
+| D-010 | JSON Formatter: parser strict lossless (angka disalin apa adanya) | Committed (`8e866d2`) | Task 2A |
+| D-011 | Base64 decode: standar + URL-safe, padding opsional, validasi ketat | Committed (`8e866d2`) | Task 2A |
+| D-012 | Konvensi validasi input: kosong ≠ 0, format ketat, error spesifik | Committed (`8e866d2`) | Task 2A |
+| D-013 | Text Formatter: trim per baris, Unicode, daftar singkatan pendek | Committed (`8e866d2`) | Task 2A |
+| D-014 | Word Counter: heuristik singkatan sederhana (bukan NLP) | Committed (`8e866d2`) | Task 2A |
+| D-015 | Kebijakan kegagalan localStorage, status per jenis data | Implemented; revisi R1 menunggu review | Task 2B Phase 1 |
+| D-016 | Registry ikon di modul tanpa JSX | Implemented; revisi R1 menunggu review | Task 2B Phase 1 |
+| D-017 | Komponen yang tidak diubah dan alasannya | Implemented; revisi R1 menunggu review | Task 2B Phase 1 |
 
 ---
 
@@ -60,7 +63,7 @@ Sandbox audit tidak punya network dan memakai binary Windows di `node_modules`, 
 
 ---
 
-## Keputusan Task 2A (diimplementasikan, menunggu review Product Owner)
+## Keputusan Task 2A (di-commit `8e866d2`)
 
 ### D-010 — JSON Formatter lossless
 - **Masalah:** `JSON.parse` mengubah semua angka menjadi double: `12345678901234567890` → `12345678901234567000`, `1.10` → `1.1`, `-0` → `0`, `1e400` → `null`.
@@ -93,3 +96,31 @@ Satu aturan untuk Percentage dan Date: **kosong**, **tidak valid**, dan **nol ya
 - Kalimat: `.`/`!`/`?` diikuti spasi/akhir teks, ditambah kutip/kurung penutup. `!`, `?`, dan elipsis selalu mengakhiri kalimat; titik tunggal diabaikan bila bagian dari singkatan: gelar/ekspresi tetap (Mr, Dr, Prof, e.g, i.e, Ir, Hj, Bpk, Jl), label + angka (`No. 5`, `hlm. 10`), inisial huruf kapital tunggal, singkatan "lunak" (etc, dll, Inc) hanya bila kata berikutnya berhuruf kapital, singkatan bertitik. Dialogue tag (`"Really?" she asked.`) satu kalimat. Satuan `ms` (huruf kecil) diperlakukan sebagai singkatan soft: hanya mengakhiri kalimat bila kata berikutnya berhuruf kapital. Gelar `Ms` (huruf kapital) tidak mengakhiri kalimat.
 - **Tidak** mengubah: teks tanpa tanda baca akhir tetap 0 kalimat (keputusan produk terbuka).
 - **Batasan:** singkatan di luar daftar dihitung akhir kalimat; kalimat yang berakhir dengan satu huruf kapital (`vitamin C.`) dikira inisial. Ini heuristik, bukan NLP.
+
+---
+
+## Keputusan Task 2B Phase 1 (diimplementasikan; revisi R1 menunggu review)
+
+### D-015 — Kebijakan kegagalan localStorage, status per jenis data
+- **Keputusan:** baca tidak pernah melempar (kosong bila tidak tersedia). Tulis yang gagal disimpan di memori untuk sesi halaman. Status dihitung **per jenis data** (`favorites`, `recent`, `demo-user`): jenis itu degraded bila pembacaan terakhir key-nya gagal, atau nilainya hanya ada di memori. `getStorageStatus(kind)` memeriksa satu jenis; `getStorageStatus()` tanpa argumen adalah status keseluruhan; `getDegradedNotices()` menghasilkan notice hanya untuk jenis yang degraded.
+- **Isolasi:** kegagalan satu jenis tidak mengubah status jenis lain. Pembacaan key yang berhasil hanya menghapus kegagalan key itu sendiri. Penulisan yang berhasil untuk suatu key menghapus kegagalan key itu tanpa perlu membaca ulang.
+- **Pemulihan:** salinan memori tidak disalin otomatis ke storage saat storage pulih, karena bisa menimpa data yang ditulis tab lain. Jenis itu tetap degraded sampai ditulis ulang oleh tindakan pengguna. Ini disengaja: status tidak boleh mengklaim data tersimpan padahal belum.
+- **Kontrak dipertahankan:** nama dan return value fungsi publik tidak berubah. Caller tidak perlu diubah.
+- **Alasan:** graceful degradation sesuai brief. Setiap jenis data hanya diberi peringatan bila memang bermasalah (bukan false warning).
+- **Alternatif yang ditolak:**
+  - *Satu status global untuk semua jenis:* menghasilkan peringatan palsu (contoh: demo user gagal membuat "Session only" muncul di favorit). Ditolak di revisi R1.
+  - *Melempar error dan menangkap di setiap caller:* perlu mengubah 4 caller dan menyebar penanganan error ke UI.
+  - *Menonaktifkan favorit saat storage gagal:* dilarang oleh brief tanpa alasan teknis kuat.
+  - *Alert browser:* mengganggu, dilarang oleh brief.
+- **Batasan:** salinan memori hilang saat halaman ditutup. Status tidak tersinkron antar-tab. Mutasi status per jenis tertangkap oleh test (lihat DEVELOPMENT_LOG).
+
+### D-016 — Registry ikon di modul tanpa JSX
+- **Keputusan:** peta ikon dipindah ke `src/lib/tool-icons.ts` (tanpa JSX). `ToolIcon.tsx` hanya merender hasil `resolveToolIcon`.
+- **Alasan:** test node:test tidak bisa mengimpor `.tsx` di runner sandbox; modul `.ts` bisa diuji langsung dengan identitas komponen lucide (bukan regex pada source).
+- **Konsekuensi:** `hasOwnProperty` menggantikan `iconMap[name] ||`, sehingga nama bawaan prototype (`constructor`) tidak lagi dianggap ikon.
+- **Kelas warna kategori:** `categoryIconClass()` dipakai oleh `ToolCard` dan test; satu sumber kebenaran untuk nama kelas.
+
+### D-017 — Komponen yang tidak diubah dan alasannya
+- `TopNav.tsx`: `getDemoUser` aman, jadi komponen tidak perlu edit. Brief membatasi perubahan TopNav ke pemanggilan storage; tidak ada yang perlu diubah.
+- `ToolWorkspace.tsx`: `recordRecent` tidak melempar lagi. Efek di workspace tetap sama.
+- `login/page.tsx`: `setDemoUser` tidak melempar; sign-in berfungsi untuk sesi, dashboard menjelaskan status.

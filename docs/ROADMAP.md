@@ -4,20 +4,20 @@ Roadmap adaptif. Ukuran kemajuan: kualitas dan stabilitas, bukan jumlah tools. S
 Legenda: ✅ selesai · 🔄 berjalan/menunggu review · ⏳ disetujui, belum mulai · 💡 usulan · ⛔ ditunda.
 
 ## Posisi saat ini
-Tahap 0 (audit) ✅ → Tahap 1 (stabilitas core) 🔄: Task 1 ✅ (di-commit `afea53b`), **Task 2A 🔄 menunggu persetujuan commit**.
+Tahap 0 (audit) ✅ → Tahap 1 (stabilitas core) 🔄: Task 1 ✅ (di-commit `afea53b`), **Task 2A ✅ di-commit dan di-push (`8e866d2`)**, **Task 2B Phase 1 🔄 revisi R1 menunggu review**.
 
 ## Tahap 1 — Stabilitas core (tiga task berurutan)
 
 | Task | Isi | Status |
 |---|---|---|
 | **Task 1** | Test & quality baseline: ekstraksi logika murni, 173 test, `typecheck`/`test`/`check`, 4 dokumen, bersih-bersih impor, warning scroll-behavior | ✅ Selesai (`afea53b`) |
-| **Task 2A** | Perbaikan logika & validasi: Base64, JSON, Percentage (validasi), Date (validasi), Text Formatter, Word Counter | 🔄 Selesai; validasi lokal PASS (typecheck, build, test); menunggu persetujuan commit |
-| **Task 2B / 2C** | Sisa backlog Task 2 di bawah. Pembagian dan isinya ditentukan Product Owner | ⏳ Belum dimulai |
+| **Task 2A** | Perbaikan logika & validasi: Base64, JSON, Percentage (validasi), Date (validasi), Text Formatter, Word Counter | ✅ Di-commit dan di-push (`8e866d2`) |
+| **Task 2B / 2C** | Phase 1 (ikon kategori & LocalStorage per jenis data): diimplementasikan, revisi R1 menunggu review. Phase 2+: homepage, navbar, direktori, Percentage Change, dll. | 🔄 Phase 1 menunggu review; Phase 2 belum dimulai |
 | **Task 3** | Registry bermetadata + pecah `ToolWorkspace` per tool + `next/dynamic` | ⏳ Setelah Task 2; butuh persetujuan karena refactor menengah |
 
 ### Backlog Task 2 (dari audit): status setelah Task 2A
 
-Selesai di Task 2A (menunggu persetujuan commit): JSON big-int/literal angka · Percentage field kosong ditolak · Date validasi, "1 day" · Base64 URL-safe · Text Formatter (trim, Unicode, singkatan) · Word Counter (singkatan).
+Selesai di Task 2A (di-commit dan di-push, `8e866d2`): JSON big-int/literal angka · Percentage field kosong ditolak · Date validasi, "1 day" · Base64 URL-safe · Text Formatter (trim, Unicode, singkatan) · Word Counter (singkatan).
 
 Belum dikerjakan, kandidat untuk 2B/2C (urutan usulan, bukan komitmen):
 1. **Percentage:** mode perubahan persentase (D-002).
@@ -25,8 +25,8 @@ Belum dikerjakan, kandidat untuk 2B/2C (urutan usulan, bukan komitmen):
 3. **Date Calculator:** tanggal default memakai tanggal lokal (saat ini UTC, salah pukul 00:00–07:00 WIB).
 4. **Pomodoro:** Start di 00:00 tidak boleh langsung "complete"; pertimbangkan timer berbasis timestamp.
 5. **PDF Merger:** UI urutan file; pesan error PDF terenkripsi.
-6. **Ikon kategori** Documents dan Business hilang di `ToolIcon` (test `todo`).
-7. **`client-storage`:** tangani error saat menulis `localStorage`.
+6. ~~**Ikon kategori** Documents dan Business~~ — selesai Task 2B Phase 1 (revisi R1 menunggu review).
+7. ~~**`client-storage`:** tangani error saat menulis `localStorage`~~ — selesai Task 2B Phase 1 (revisi R1 menunggu review).
 8. **Self-host Google Fonts** (D-004).
 
 Keputusan produk yang muncul dari 2A (belum diputuskan):

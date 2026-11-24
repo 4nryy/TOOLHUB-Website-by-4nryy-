@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, Clock3, Heart, Search, Settings2, Sparkles } from "lucide-react";
-import { getFavorites, getRecent, getDemoUser, clearDemoUser } from "@/lib/client-storage";
+import { getFavorites, getRecent, getDemoUser, clearDemoUser, getDegradedNotices } from "@/lib/client-storage";
 import { tools } from "@/lib/tools";
 import ToolCard from "@/components/ToolCard";
 
@@ -11,8 +11,9 @@ export default function DashboardClient() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const [user, setUser] = useState<string | null>(null);
+  const [notices, setNotices] = useState<string[]>([]);
   useEffect(() => {
-    const sync = () => { setFavorites(getFavorites()); setRecent(getRecent()); setUser(getDemoUser()); };
+    const sync = () => { setFavorites(getFavorites()); setRecent(getRecent()); setUser(getDemoUser()); setNotices(getDegradedNotices()); };
     sync(); window.addEventListener("toolhub:storage", sync);
     return () => window.removeEventListener("toolhub:storage", sync);
   }, []);
@@ -35,7 +36,7 @@ export default function DashboardClient() {
         {favoriteTools.length ? <div className="tool-grid compact-grid">{favoriteTools.slice(0, 4).map((tool) => <ToolCard key={tool.slug} tool={tool}/>)}</div> : <div className="inline-empty"><span className="empty-icon"><Heart size={20}/></span><div><strong>Your favorites will live here</strong><p>Use the star on any tool to save it for later.</p></div><Link href="/tools">Find tools <ArrowRight size={14}/></Link></div>}
       </section>
       <section className="workspace-promo"><div className="promo-icon"><Sparkles size={21}/></div><div><strong>Keep your workflow simple.</strong><p>Save your most-used tools and build a personal workspace as you go.</p></div><Link href="/tools">Find a tool <ArrowRight size={15}/></Link></section>
-      <div className="dashboard-footnote"><Settings2 size={14}/> Prototype mode: favorites and recent tools are saved in this browser only. <button onClick={() => {clearDemoUser();setUser(null);}}>Sign out demo</button></div>
+      <div className="dashboard-footnote"><Settings2 size={14}/> {notices.length ? `${notices.join(" ")} ` : "Prototype mode: favorites and recent tools are saved in this browser only. "}<button onClick={() => {clearDemoUser();setUser(null);}}>Sign out demo</button></div>
     </div>
   );
 }
